@@ -1,0 +1,428 @@
+{% extends "base.html" %}
+
+{% block title %}{{ recipe.title }} - Recipe AI Generator{% endblock %}
+
+{% block content %}
+<!-- Navigation breadcrumb -->
+<nav aria-label="breadcrumb" class="mb-4">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item">
+            <a href="{{ url_for('index') }}">
+                <i class="fas fa-home"></i> Acasă
+            </a>
+        </li>
+        <li class="breadcrumb-item">
+            <a href="{{ url_for('gallery') }}">
+                <i class="fas fa-images"></i> Galerie
+            </a>
+        </li>
+        <li class="breadcrumb-item active">{{ recipe.title }}</li>
+    </ol>
+</nav>
+
+<!-- Header rețetă -->
+<div class="recipe-header text-center mb-5">
+    <div class="recipe-title-container">
+        <h1 class="display-4 mb-3">
+            <i class="fas fa-utensils"></i> {{ recipe.title }}
+        </h1>
+        
+        <!-- Rating și data -->
+        <div class="recipe-meta mb-4">
+            <div class="difficulty-rating mb-2">
+                <span class="me-2 fs-5">Dificultate:</span>
+                <span class="stars">
+                    {% for i in range(1, 6) %}
+                        {% if i <= recipe.difficulty %}
+                            <i class="fas fa-star"></i>
+                        {% else %}
+                            <i class="far fa-star"></i>
+                        {% endif %}
+                    {% endfor %}
+                </span>
+                <span class="ms-2 text-muted">({{ recipe.difficulty }}/5)</span>
+            </div>
+            
+            <div class="recipe-date">
+                <i class="fas fa-calendar-alt text-muted"></i>
+                <span class="text-muted">Salvată pe: {{ recipe.created_at[:10] }}</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Content principal -->
+<div class="row">
+    <!-- Coloana ingrediente -->
+    <div class="col-lg-5 mb-4">
+        <div class="ingredients-section">
+            <div class="section-header">
+                <h3><i class="fas fa-list-check"></i> Ingrediente Necesare</h3>
+            </div>
+            <div class="ingredients-list">
+                {% for ingredient in recipe.ingredients %}
+                    <div class="ingredient-item">
+                        <div class="ingredient-checkbox">
+                            <input type="checkbox" class="form-check-input" id="ingredient{{ loop.index }}">
+                            <label class="form-check-label" for="ingredient{{ loop.index }}">
+                                {{ ingredient }}
+                            </label>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+            
+            <div class="ingredients-progress mt-3">
+                <div class="progress">
+                    <div class="progress-bar bg-success" role="progressbar" style="width: 0%">
+                        <span class="progress-text">0 / {{ recipe.ingredients|length }}</span>
+                    </div>
+                </div>
+                <small class="text-muted mt-1 d-block">Bifează ingredientele pe măsură ce le pregătești</small>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Coloana instrucțiuni -->
+    <div class="col-lg-7 mb-4">
+        <div class="instructions-section">
+            <div class="section-header">
+                <h3><i class="fas fa-tasks"></i> Mod de Preparare</h3>
+            </div>
+            <div class="instructions-list">
+                {% for instruction in recipe.instructions %}
+                    <div class="instruction-item">
+                        <div class="instruction-number">{{ loop.index }}</div>
+                        <div class="instruction-content">
+                            <div class="instruction-text">{{ instruction }}</div>
+                            <div class="instruction-actions">
+                                <button class="btn btn-sm btn-outline-success instruction-done" data-step="{{ loop.index }}">
+                                    <i class="fas fa-check"></i> Făcut
+                                </button>
+                                <button class="btn btn-sm btn-outline-primary instruction-timer" data-step="{{ loop.index }}">
+                                    <i class="fas fa-clock"></i> Timer
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Secțiunea recomandări băuturi -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="wine-pairing-section">
+            <h3><i class="fas fa-wine-glass-alt"></i> Recomandare Băutură</h3>
+            <div class="wine-content">
+                <div class="wine-icon">
+                    <i class="fas fa-wine-bottle"></i>
+                </div>
+                <div class="wine-text">
+                    <p class="wine-description">{{ recipe.wine_pairing }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Butoane de acțiune -->
+<div class="row mt-5">
+    <div class="col-12">
+        <div class="action-buttons text-center">
+            <button class="btn btn-success btn-lg me-3" id="printRecipeBtn">
+                <i class="fas fa-print"></i> Printează Rețeta
+            </button>
+            
+            <button class="btn btn-primary btn-lg me-3" id="shareRecipeBtn">
+                <i class="fas fa-share-alt"></i> Partajează
+            </button>
+            
+            <button class="btn btn-warning btn-lg me-3" id="startCookingModeBtn">
+                <i class="fas fa-play"></i> Mod Gătit
+            </button>
+            
+            <button class="btn btn-outline-danger" id="deleteRecipeBtn" data-id="{{ recipe.id }}" data-title="{{ recipe.title }}">
+                <i class="fas fa-trash"></i> Șterge Rețeta
+            </button>
+        </div>
+    </div>
+</div>
+
+
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .recipe-header { background: #fff; border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; margin-bottom: 1.5rem; }
+    
+    .recipe-title-container {
+        animation: fadeInDown 0.8s ease-out;
+    }
+    
+    .stars { color: #f59e0b; font-size: 1.1rem; }
+    
+    @keyframes starGlow {
+        from { filter: drop-shadow(0 0 5px #ffc107); }
+        to { filter: drop-shadow(0 0 10px #ffc107); }
+    }
+    
+    .section-header { background: #fff; border: 1px solid var(--border); border-bottom: none; border-radius: 8px 8px 0 0; padding: 1rem 1.25rem; }
+    
+    .ingredients-list, .instructions-list { background: #fff; border: 1px solid var(--border); border-top: none; border-radius: 0 0 8px 8px; padding: 1rem 1.25rem; }
+    /* Forțăm culoare text în liste pentru contrast bun */
+    .ingredients-list, .ingredients-list *,
+    .instructions-list, .instructions-list * {
+        color: var(--dark-color) !important;
+    }
+    
+    .ingredient-item { margin-bottom: 0.75rem; padding: 0.5rem 0.75rem; border: 1px solid var(--border); border-radius: 6px; background: #fff; }
+    
+    .ingredient-checkbox input:checked + label {
+        text-decoration: line-through;
+        color: #6c757d;
+    }
+    
+    .instruction-item { display: flex; gap: 12px; margin-bottom: 1rem; padding: 0.75rem; border: 1px solid var(--border); border-radius: 6px; background: #fff; }
+    
+    .instruction-item.completed { border-color: #10b981; background: #ecfdf5; }
+    
+    .instruction-number { background: var(--primary-color); color: #fff; width: 36px; height: 36px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-weight: 600; flex-shrink: 0; }
+    
+    .instruction-content {
+        flex: 1;
+    }
+    
+    .instruction-actions {
+        margin-top: 0.5rem;
+    }
+    
+    .wine-pairing-section { background: #fff; border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; margin-top: 1.25rem; }
+    
+    .wine-content {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+    
+    .wine-icon {
+        font-size: 3rem;
+        opacity: 0.7;
+    }
+    
+    .timer-circle {
+        width: 200px;
+        height: 200px;
+        border-radius: 50%;
+        border: 5px solid var(--primary-color);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto;
+        background: rgba(230, 126, 34, 0.1);
+    }
+    
+    .timer-time {
+        font-size: 2rem;
+        font-weight: bold;
+        color: var(--primary-color);
+    }
+    
+    .cooking-step-container {
+        padding: 2rem;
+        min-height: 60vh;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+    
+    .cooking-step-number .badge {
+        width: 80px;
+        height: 80px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+    }
+    
+    .ingredients-progress .progress {
+        height: 8px;
+        border-radius: 10px;
+    }
+    
+    .progress-text {
+        font-size: 0.8rem;
+        font-weight: bold;
+    }
+    
+    @keyframes fadeInDown {
+        from {
+            opacity: 0;
+            transform: translateY(-30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    @keyframes slideInLeft {
+        from {
+            opacity: 0;
+            transform: translateX(-50px);
+        }
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+    
+    .ingredients-section {
+        animation: slideInLeft 0.6s ease-out 0.2s both;
+    }
+    
+    .instructions-section {
+        animation: slideInLeft 0.6s ease-out 0.4s both;
+    }
+    
+    .wine-pairing-section {
+        animation: slideInLeft 0.6s ease-out 0.6s both;
+    }
+    
+    @media print {
+        .btn, .modal, nav, .action-buttons {
+            display: none !important;
+        }
+        
+        body {
+            background: white !important;
+        }
+        
+        .container-main {
+            box-shadow: none !important;
+            margin: 0 !important;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/recipe_detail.js') }}"></script>
+{% endblock %}
+
+{% block modals %}
+<!-- Timer Modal (mutat la final pentru stacking corect) -->
+<div class="modal fade" id="timerModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-clock"></i> Timer pentru Pasul <span id="timerStep"></span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center">
+                <div class="timer-display mb-4">
+                    <div class="timer-circle">
+                        <span id="timerDisplay" class="timer-time">05:00</span>
+                    </div>
+                </div>
+                <div class="timer-presets mb-3">
+                    <button class="btn btn-outline-primary btn-sm me-2 timer-preset" data-seconds="300">5 min</button>
+                    <button class="btn btn-outline-primary btn-sm me-2 timer-preset" data-seconds="600">10 min</button>
+                    <button class="btn btn-outline-primary btn-sm me-2 timer-preset" data-seconds="900">15 min</button>
+                    <button class="btn btn-outline-primary btn-sm timer-preset" data-seconds="1800">30 min</button>
+                </div>
+                <div class="timer-controls">
+                    <button class="btn btn-success me-2" id="startTimerBtn">
+                        <i class="fas fa-play"></i> Start
+                    </button>
+                    <button class="btn btn-warning me-2" id="resetTimerBtn">
+                        <i class="fas fa-reset"></i> Reset
+                    </button>
+                </div>
+                <div class="mt-3">
+                    <input type="number" class="form-control d-inline" style="width: 80px;" id="customMinutes" placeholder="min" min="1" max="120">
+                    <button class="btn btn-outline-secondary btn-sm ms-2" id="setCustomTimerBtn">Setează</button>
+                </div>
+            </div>
+        </div>
+    </div>
+ </div>
+
+ <!-- Cooking Mode Modal (mutat la final) -->
+ <div class="modal fade" id="cookingModeModal" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-fullscreen">
+        <div class="modal-content bg-dark text-white">
+            <div class="modal-header border-secondary">
+                <h3 class="modal-title">
+                    <i class="fas fa-chef-hat"></i> Mod Gătit - {{ recipe.title }}
+                </h3>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="cooking-step-container text-center">
+                    <div class="cooking-step-number mb-3">
+                        <span class="badge bg-primary fs-1" id="currentStepNumber">1</span>
+                    </div>
+                    <div class="cooking-step-content">
+                        <h4 id="currentStepText">{{ recipe.instructions[0] if recipe.instructions else '' }}</h4>
+                    </div>
+                    <div class="cooking-progress mt-4">
+                        <div class="progress" style="height: 10px;">
+                            <div class="progress-bar bg-success" id="cookingProgress" style="width: 0%"></div>
+                        </div>
+                        <p class="mt-2">Pas <span id="stepCounter">1</span> din {{ recipe.instructions|length }}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-secondary justify-content-between">
+                <button class="btn btn-outline-light" id="prevStepBtn" disabled>
+                    <i class="fas fa-arrow-left"></i> Înapoi
+                </button>
+                <div>
+                    <button class="btn btn-warning me-2" id="pauseCookingBtn">
+                        <i class="fas fa-pause"></i> Pauză
+                    </button>
+                    <button class="btn btn-success" id="nextStepBtn">
+                        Următorul <i class="fas fa-arrow-right"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+ </div>
+
+ <!-- Delete Modal (mutat la final) -->
+ <div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-exclamation-triangle text-warning"></i> 
+                    Confirmare Ștergere
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Ești sigur că vrei să ștergi această rețetă?</p>
+                <div class="alert alert-warning">
+                    <i class="fas fa-info-circle"></i>
+                    Această acțiune nu poate fi anulată!
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Anulează</button>
+                <form method="POST" action="{{ url_for('delete_recipe', recipe_id=recipe.id) }}" style="display: inline;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-trash"></i> Da, Șterge
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+ </div>
+{% endblock %}

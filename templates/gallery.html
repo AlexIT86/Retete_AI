@@ -1,0 +1,286 @@
+{% extends "base.html" %}
+
+{% block title %}Galeria Mea de Rețete - Recipe AI Generator{% endblock %}
+
+{% block content %}
+<div class="text-center mb-5">
+    <h1 class="display-4 mb-4">
+        <i class="fas fa-images"></i> Galeria Mea de Rețete
+    </h1>
+    <p class="lead">Colecția ta personală de rețete generate cu AI</p>
+    
+    <div class="row justify-content-center mt-4">
+        <div class="col-auto">
+            <a href="{{ url_for('index') }}" class="btn btn-primary btn-lg">
+                <i class="fas fa-plus"></i> Adaugă Rețetă Nouă
+            </a>
+        </div>
+    </div>
+</div>
+
+{% if recipes %}
+    <!-- Statistici rapide -->
+    <div class="row mb-5">
+        <div class="col-md-4">
+            <div class="card bg-primary text-white text-center">
+                <div class="card-body">
+                    <i class="fas fa-utensils fa-2x mb-2"></i>
+                    <h3>{{ recipes|length }}</h3>
+                    <p class="mb-0">Rețete Salvate</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-success text-white text-center">
+                <div class="card-body">
+                    <i class="fas fa-star fa-2x mb-2"></i>
+                    <h3>{{ "%.1f"|format(recipes|map(attribute='difficulty')|sum / recipes|length) }}</h3>
+                    <p class="mb-0">Dificultate Medie</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-info text-white text-center">
+                <div class="card-body">
+                    <i class="fas fa-calendar fa-2x mb-2"></i>
+                    <h3>{{ recipes[0].created_at[:10] if recipes }}</h3>
+                    <p class="mb-0">Ultima Rețetă</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtre și sortare -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-6">
+                            <div class="input-group">
+                                <span class="input-group-text">
+                                    <i class="fas fa-search"></i>
+                                </span>
+                                <input type="text" class="form-control" id="searchInput" placeholder="Caută în rețete...">
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <select class="form-select" id="difficultyFilter">
+                                <option value="">Toate dificultățile</option>
+                                <option value="1">⭐ Foarte Ușor</option>
+                                <option value="2">⭐⭐ Ușor</option>
+                                <option value="3">⭐⭐⭐ Mediu</option>
+                                <option value="4">⭐⭐⭐⭐ Greu</option>
+                                <option value="5">⭐⭐⭐⭐⭐ Foarte Greu</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <select class="form-select" id="sortFilter">
+                                <option value="newest">Cele mai noi</option>
+                                <option value="oldest">Cele mai vechi</option>
+                                <option value="difficulty-asc">Dificultate ↑</option>
+                                <option value="difficulty-desc">Dificultate ↓</option>
+                                <option value="title">Nume A-Z</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Grid de rețete -->
+    <div class="row" id="recipesGrid">
+        {% for recipe in recipes %}
+            <div class="col-lg-4 col-md-6 mb-4 recipe-card" 
+                 data-difficulty="{{ recipe.difficulty }}" 
+                 data-title="{{ recipe.title.lower() }}"
+                 data-created="{{ recipe.created_at }}">
+                <div class="card h-100 recipe-item">
+                    <div class="card-header" style="background:#fff;border-bottom:1px solid var(--border);">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-utensils me-2"></i>
+                            {{ recipe.title }}
+                        </h5>
+                    </div>
+                    
+                    <div class="card-body">
+                        <!-- Rating dificultate -->
+                        <div class="mb-3">
+                            <span class="text-muted me-2">Dificultate:</span>
+                            <span class="stars">
+                                {% for i in range(1, 6) %}
+                                    {% if i <= recipe.difficulty %}
+                                        <i class="fas fa-star"></i>
+                                    {% else %}
+                                        <i class="far fa-star"></i>
+                                    {% endif %}
+                                {% endfor %}
+                            </span>
+                        </div>
+                        
+                        <!-- Preview ingrediente -->
+                        <div class="mb-3">
+                            <h6><i class="fas fa-list-check"></i> Ingrediente principale:</h6>
+                            <ul class="list-unstyled small">
+                                {% for ingredient in recipe.ingredients %}
+                                    <li><i class="fas fa-check-circle text-success me-1"></i> {{ ingredient }}</li>
+                                {% endfor %}
+                                {% if recipe.ingredients|length < 3 %}
+                                    <li class="text-muted">... și altele</li>
+                                {% endif %}
+                            </ul>
+                        </div>
+                        
+                        <!-- Data creării -->
+                        <small class="text-muted">
+                            <i class="fas fa-calendar-alt"></i>
+                            Creată pe: {{ recipe.created_at[:10] }}
+                        </small>
+                    </div>
+                    
+                    <div class="card-footer bg-transparent">
+                        <div class="d-grid gap-2">
+                            <a href="{{ url_for('view_recipe', recipe_id=recipe.id) }}" 
+                               class="btn btn-primary">
+                                <i class="fas fa-eye"></i> Vezi Rețeta Completă
+                            </a>
+                            <button class="btn btn-outline-danger btn-sm delete-btn" 
+                                    data-id="{{ recipe.id }}" data-title="{{ recipe.title }}">
+                                <i class="fas fa-trash"></i> Șterge
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+
+    <!-- Mesaj când nu sunt rezultate -->
+    <div id="noResults" class="text-center mt-5" style="display: none;">
+        <i class="fas fa-search fa-3x text-muted mb-3"></i>
+        <h4>Nu am găsit nicio rețetă</h4>
+        <p class="text-muted">Încearcă să modifici filtrele de căutare.</p>
+    </div>
+
+{% else %}
+    <!-- Mesaj când galeria este goală -->
+    <div class="text-center mt-5">
+        <i class="fas fa-utensils fa-5x text-muted mb-4"></i>
+        <h3>Galeria ta este goală</h3>
+        <p class="lead text-muted mb-4">Nu ai încă nicio rețetă salvată. Să creăm prima ta rețetă magică!</p>
+        
+        <div class="row justify-content-center">
+            <div class="col-md-6">
+                <div class="card bg-light">
+                    <div class="card-body">
+                        <h5>💡 Sfat</h5>
+                        <p class="mb-0">
+                            Când generezi o rețetă nouă, apasă pe butonul 
+                            <strong>"Salvează în Galerie"</strong> pentru a o adăuga aici.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="mt-4">
+            <a href="{{ url_for('index') }}" class="btn btn-primary btn-lg">
+                <i class="fas fa-wand-magic-sparkles"></i> Generează Prima Rețetă
+            </a>
+        </div>
+    </div>
+{% endif %}
+
+<!-- Modal mutat la finalul body pentru a evita probleme de stacking context -->
+
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .bg-recipe {
+        background: linear-gradient(45deg, #e67e22, #f39c12) !important;
+        color: #ffffff !important;
+    }
+    .bg-recipe .card-title {
+        color: #ffffff !important;
+    }
+    .card-title { color: var(--text-color); font-weight: 600; }
+    .recipe-item { transition: none; border: 1px solid var(--border); box-shadow: none; }
+    
+    .recipe-item:hover { transform: none; box-shadow: none; }
+    
+    .recipe-card {
+        animation: fadeInUp 0.6s ease-out;
+        animation-fill-mode: both;
+    }
+    
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    /* Delay pentru animațiile cardurilor */
+    .recipe-card:nth-child(1) { animation-delay: 0.1s; }
+    .recipe-card:nth-child(2) { animation-delay: 0.2s; }
+    .recipe-card:nth-child(3) { animation-delay: 0.3s; }
+    .recipe-card:nth-child(4) { animation-delay: 0.4s; }
+    .recipe-card:nth-child(5) { animation-delay: 0.5s; }
+    .recipe-card:nth-child(6) { animation-delay: 0.6s; }
+    
+    .stars { color: #f59e0b; font-size: 1rem; }
+    
+    .card-header { border-bottom: 1px solid var(--border); }
+    
+    .btn-outline-danger:hover { transform: none; }
+    
+    #searchInput:focus { box-shadow: 0 0 0 3px rgba(45,108,223,0.15); border-color: var(--primary-color); }
+    
+    .form-select:focus { box-shadow: 0 0 0 3px rgba(45,108,223,0.15); border-color: var(--primary-color); }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/gallery.js') }}"></script>
+{% endblock %}
+
+{% block modals %}
+<!-- Modal pentru confirmarea ștergerii -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-exclamation-triangle text-warning"></i> 
+                    Confirmare Ștergere
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Ești sigur că vrei să ștergi rețeta <strong id="recipeToDelete"></strong>?</p>
+                <div class="alert alert-warning">
+                    <i class="fas fa-info-circle"></i>
+                    Această acțiune nu poate fi anulată!
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times"></i> Anulează
+                </button>
+                <form method="POST" id="deleteForm" style="display: inline;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-trash"></i> Da, Șterge
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
