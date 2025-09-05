@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session, g
 import sqlite3
 import requests
 import json
@@ -10,6 +10,7 @@ import re
 from dotenv import load_dotenv
 from flask_wtf.csrf import CSRFProtect, generate_csrf
 from flask_talisman import Talisman
+from werkzeug.security import generate_password_hash, check_password_hash
 
 load_dotenv()
 
@@ -118,6 +119,25 @@ def init_db():
         )
     ''')
 
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT NOT NULL UNIQUE,
+            password_hash TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS usage_limits (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            day DATE NOT NULL,
+            count INTEGER NOT NULL DEFAULT 0,
+            UNIQUE(user_id, day)
+        )
+    ''')
+
     conn.commit()
     conn.close()
 
@@ -223,6 +243,45 @@ def _ingredients_to_strings(ingredients):
             elif isinstance(ing, str):
                 normalized.append(f"• {ing.strip()}")
     return normalized
+@app.before_request
+def load_current_user():
+    user_id = session.get('user_id')
+    user_email = session.get('user_email')
+    g.user = {'id': user_id, 'email': user_email} if user_id and user_email else None
+
+
+def login_required(view_func):
+    def _wrapped(*args, **kwargs):
+        if not g.get('user'):
+            flash('Trebuie să te autentifici pentru a accesa această acțiune.', 'error')
+            return redirect(url_for('login', next=request.path))
+        return view_func(*args, **kwargs)
+    _wrapped.__name__ = view_func.__name__
+    return _wrapped
+
+
+def _get_today_count(user_id):
+    conn = sqlite3.connect(DATABASE)
+    cursor = conn.cursor()
+    today = datetime.utcnow().date().isoformat()
+    cursor.execute('SELECT count FROM usage_limits WHERE user_id = ? AND day = ?', (user_id, today))
+    row = cursor.fetchone()
+    conn.close()
+    return (row[0] if row else 0)
+
+
+def _inc_today_count(user_id):
+    conn = sqlite3.connect(DATABASE)
+    cursor = conn.cursor()
+    today = datetime.utcnow().date().isoformat()
+    cursor.execute('SELECT id, count FROM usage_limits WHERE user_id = ? AND day = ?', (user_id, today))
+    row = cursor.fetchone()
+    if row:
+        cursor.execute('UPDATE usage_limits SET count = ? WHERE id = ?', (row[1] + 1, row[0]))
+    else:
+        cursor.execute('INSERT INTO usage_limits (user_id, day, count) VALUES (?, ?, ?)', (user_id, today, 1))
+    conn.commit()
+    conn.close()
 
 
 def parse_recipe_response(response_text, original_ingredients):
@@ -302,16 +361,82 @@ def parse_recipe_response(response_text, original_ingredients):
 @app.route('/')
 def index():
     """Pagina principală"""
-    return render_template('index.html')
+    if not g.get('user'):
+        return redirect(url_for('login'))
+    remaining = max(0, 10 - _get_today_count(g.user['id']))
+    return render_template('index.html', remaining=remaining)
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        email = (request.form.get('email') or '').strip().lower()
+        password = request.form.get('password') or ''
+        if not email or not password:
+            flash('Email și parolă necesare', 'error')
+            return redirect(url_for('login'))
+        conn = sqlite3.connect(DATABASE)
+        cursor = conn.cursor()
+        cursor.execute('SELECT id, password_hash FROM users WHERE email = ?', (email,))
+        row = cursor.fetchone()
+        conn.close()
+        if not row or not check_password_hash(row[1], password):
+            flash('Credențiale invalide', 'error')
+            return redirect(url_for('login'))
+        session['user_id'] = row[0]
+        session['user_email'] = email
+        flash('Bun venit!', 'success')
+        next_url = request.args.get('next') or url_for('index')
+        return redirect(next_url)
+    return render_template('login.html')
+
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        email = (request.form.get('email') or '').strip().lower()
+        password = request.form.get('password') or ''
+        if not email or not password:
+            flash('Email și parolă necesare', 'error')
+            return redirect(url_for('register'))
+        conn = sqlite3.connect(DATABASE)
+        cursor = conn.cursor()
+        try:
+            cursor.execute('INSERT INTO users (email, password_hash) VALUES (?, ?)', (email, generate_password_hash(password)))
+            conn.commit()
+        except Exception:
+            conn.close()
+            flash('Email deja folosit', 'error')
+            return redirect(url_for('register'))
+        cursor.execute('SELECT id FROM users WHERE email = ?', (email,))
+        row = cursor.fetchone()
+        conn.close()
+        session['user_id'] = row[0]
+        session['user_email'] = email
+        flash('Cont creat!', 'success')
+        return redirect(url_for('index'))
+    return render_template('register.html')
+
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    flash('Te-ai delogat.', 'success')
+    return redirect(url_for('index'))
 
 
 @app.route('/generate_recipe', methods=['POST'])
+@login_required
 def generate_recipe():
     """Generează rețeta bazată pe ingrediente"""
     ingredients = request.form.get('ingredients', '').strip()
 
     if not ingredients:
         flash('Te rog să introduci cel puțin un ingredient!', 'error')
+        return redirect(url_for('index'))
+
+    # Limita: 10 generări/zi per utilizator
+    user = g.get('user')
+    if _get_today_count(user['id']) >= 10:
+        flash('Ai atins limita de 10 rețete pe zi. Revino mâine!', 'error')
         return redirect(url_for('index'))
 
     # Generează rețeta folosind Gemini
@@ -328,6 +453,7 @@ def generate_recipe():
         flash('Nu se poate genera rețeta în acest moment. Te rugăm încearcă din nou.', 'error')
         return redirect(url_for('index'))
 
+    _inc_today_count(user['id'])
     logger.info("Recipe generated successfully | title='%s'", (recipe_data.get('title') or '')[:80])
     return render_template('recipe_result.html',
                            recipe=recipe_data,
@@ -335,6 +461,7 @@ def generate_recipe():
 
 
 @app.route('/save_recipe', methods=['POST'])
+@login_required
 def save_recipe():
     """Salvează rețeta în baza de date"""
     try:
@@ -364,6 +491,7 @@ def save_recipe():
 
 
 @app.route('/gallery')
+@login_required
 def gallery():
     """Afișează galeria de rețete salvate"""
     conn = sqlite3.connect(DATABASE)
@@ -391,6 +519,7 @@ def gallery():
 
 
 @app.route('/recipe/<int:recipe_id>')
+@login_required
 def view_recipe(recipe_id):
     """Afișează o rețetă completă din galerie"""
     conn = sqlite3.connect(DATABASE)
@@ -418,6 +547,7 @@ def view_recipe(recipe_id):
 
 
 @app.route('/delete_recipe/<int:recipe_id>', methods=['POST'])
+@login_required
 def delete_recipe(recipe_id):
     """Șterge o rețetă din galerie"""
     conn = sqlite3.connect(DATABASE)

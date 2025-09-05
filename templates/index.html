@@ -8,6 +8,9 @@
         <i class="fas fa-magic"></i> Recipe AI Generator
     </h1>
     <p class="lead">Transformă-ți ingredientele în rețete delicioase cu ajutorul inteligenței artificiale!</p>
+    {% if remaining is defined %}
+    <p class="text-muted">Îți mai rămân astăzi <strong>{{ remaining }}</strong> generări.</p>
+    {% endif %}
     <p class="text-muted">Introduci ingredientele pe care le ai, iar AI-ul îți va genera o rețetă completă cu instrucțiuni, rating de dificultate și recomandări de băuturi.</p>
 </div>
 
