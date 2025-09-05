@@ -435,5 +435,7 @@ if __name__ == '__main__':
     # Inițializează baza de date
     init_db()
 
-    # Rulează aplicația în modul debug pe portul 8001
-    app.run(debug=True, host='0.0.0.0', port=8001)
+    # Rulează aplicația local în modul debug. Pe Render se folosește Gunicorn + PORT.
+    port = int(os.getenv('PORT', '8001'))
+    debug = os.getenv('FLASK_DEBUG', 'true').lower() == 'true'
+    app.run(debug=debug, host='0.0.0.0', port=port)

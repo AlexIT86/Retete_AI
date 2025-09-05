@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: retete-ai
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --workers 2 --threads 4 --timeout 120
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11
+      - key: LOG_LEVEL
+        value: INFO
+      - key: SECURE_COOKIES
+        value: true
+      - key: HF_MODEL_ID
+        value: mistralai/Mixtral-8x7B-Instruct-v0.1
+
