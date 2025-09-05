@@ -12,6 +12,10 @@ services:
         value: INFO
       - key: SECURE_COOKIES
         value: true
-      - key: HF_MODEL_ID
-        value: mistralai/Mixtral-8x7B-Instruct-v0.1
+      - key: FLASK_DEBUG
+        value: "false"
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: SECRET_KEY
+        generateValue: true
 
