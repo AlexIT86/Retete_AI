@@ -142,6 +142,13 @@ def init_db():
     conn.close()
 
 
+# Asigură existența tabelelor și sub Gunicorn/Render (la importul aplicației)
+try:
+    init_db()
+except Exception:
+    logger.exception("DB init failed at import time")
+
+
 def get_gemini_response(ingredients_text):
     """Generează rețeta folosind Google Gemini API (fără fallback)."""
     if not GEMINI_API_KEY:
