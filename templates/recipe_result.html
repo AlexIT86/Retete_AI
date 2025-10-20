@@ -117,10 +117,6 @@
             <i class="fas fa-save"></i> Salvează în Galerie
         </button>
         
-        <button class="btn btn-outline-primary btn-lg me-3" id="shareRecipeBtn">
-            <i class="fas fa-share-alt"></i> Partajează Rețeta
-        </button>
-        
         <a href="{{ url_for('index') }}" class="btn btn-outline-secondary btn-lg">
             <i class="fas fa-plus"></i> Generează Alta
         </a>
@@ -151,36 +147,6 @@
     </div>
 </div>
 
-<!-- Modal pentru partajare -->
-<div class="modal fade" id="shareModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">
-                    <i class="fas fa-share-alt"></i> Partajează Rețeta
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <p>Partajează această rețetă delicioasă cu prietenii:</p>
-                <div class="d-grid gap-2">
-                    <button class="btn btn-primary share-platform" data-platform="facebook">
-                        <i class="fab fa-facebook-f"></i> Partajează pe Facebook
-                    </button>
-                    <button class="btn btn-info share-platform" data-platform="twitter">
-                        <i class="fab fa-twitter"></i> Partajează pe Twitter
-                    </button>
-                    <button class="btn btn-success share-platform" data-platform="whatsapp">
-                        <i class="fab fa-whatsapp"></i> Trimite pe WhatsApp
-                    </button>
-                    <button class="btn btn-outline-secondary" id="copyTextBtn">
-                        <i class="fas fa-copy"></i> Copiază Textul
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
 
 {% endblock %}
 

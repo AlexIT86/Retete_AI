@@ -1,5 +1,14 @@
-// Rețetă din context
-// Colectăm datele din DOM pentru a evita script inline cu obiect JS
+/**
+ * recipe_result.js - Logică pentru pagina de rezultate după generarea rețetei
+ * 
+ * Funcționalități:
+ * - Salvarea rețetei în baza de date (fetch la /save_recipe)
+ * - Colectare date rețetă din DOM (evită JSON inline în HTML)
+ */
+
+// ==================== COLECTARE DATE REȚETĂ DIN DOM ====================
+// Rețetă din context - colectăm datele din DOM pentru a evita script inline cu obiect JS
+// Acest obiect va fi folosit pentru salvare
 var recipeData = (function collectRecipeFromDom() {
     try {
         var title = document.querySelector('h1.display-5').textContent.trim();
@@ -18,7 +27,11 @@ var recipeData = (function collectRecipeFromDom() {
     }
 })();
 
-// Salvare rețetă
+// ==================== SALVARE REȚETĂ ====================
+/**
+ * Salvează rețeta în baza de date prin POST JSON la /save_recipe
+ * La succes, redirecționează la galerie
+ */
 async function saveRecipe() {
     var btn = document.getElementById('saveRecipeBtn');
     if (btn) {
@@ -28,6 +41,7 @@ async function saveRecipe() {
     }
 
     try {
+        // Trimite JSON cu datele rețetei (CSRF token se adaugă automat din base.js)
         var response = await fetch('/save_recipe', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -36,11 +50,13 @@ async function saveRecipe() {
         var result = await response.json();
 
         if (result && result.success) {
+            // La succes, redirecționează la galerie
             window.location.href = '/gallery';
             return;
         }
         throw new Error(result && result.message ? result.message : 'Eroare la salvare');
     } catch (e) {
+        // La eroare, restaurează butonul și afișează alert
         if (btn) {
             btn.disabled = false;
             btn.innerHTML = btn.dataset.original || '<i class="fas fa-save"></i> Salvează în Galerie';
@@ -49,77 +65,22 @@ async function saveRecipe() {
     }
 }
 
-function openShareModal() {
-    var modal = new bootstrap.Modal(document.getElementById('shareModal'));
-    modal.show();
-}
-
-function shareOnSocial(platform) {
-    var recipeText = 'Am găsit o rețetă grozavă: ' + recipeData.title + '! Generată cu AI pe Recipe Generator.';
-    var url = window.location.href;
-    var shareUrl = '';
-    switch (platform) {
-        case 'facebook':
-            shareUrl = 'https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(url) + '&quote=' + encodeURIComponent(recipeText);
-            break;
-        case 'twitter':
-            shareUrl = 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(recipeText) + '&url=' + encodeURIComponent(url);
-            break;
-        case 'whatsapp':
-            shareUrl = 'https://wa.me/?text=' + encodeURIComponent(recipeText + ' ' + url);
-            break;
-    }
-    if (shareUrl) window.open(shareUrl, '_blank', 'width=600,height=400');
-}
-
-async function copyToClipboard() {
-    var recipeText = (
-        recipeData.title + '\n\n' +
-        'INGREDIENTE:\n' + recipeData.ingredients.map(function(ing){ return '• ' + ing; }).join('\n') + '\n\n' +
-        'INSTRUCȚIUNI:\n' + recipeData.instructions.map(function(inst, idx){ return (idx+1) + '. ' + inst; }).join('\n') + '\n\n' +
-        'DIFICULTATE: ' + recipeData.difficulty + '/5 stele\n\n' +
-        'RECOMANDARE BĂUTURĂ: ' + recipeData.wine_pairing + '\n\n' +
-        'Generat cu Recipe AI Generator'
-    ).trim();
-    try {
-        await navigator.clipboard.writeText(recipeText);
-        var btn = document.getElementById('copyTextBtn');
-        var original = btn.innerHTML;
-        btn.innerHTML = '<i class="fas fa-check"></i> Copiat!';
-        btn.classList.add('btn-success');
-        btn.classList.remove('btn-outline-secondary');
-        setTimeout(function(){
-            btn.innerHTML = original;
-            btn.classList.remove('btn-success');
-            btn.classList.add('btn-outline-secondary');
-        }, 2000);
-    } catch (e) {
-        alert('Nu am putut copia textul. Încearcă să selectezi manual textul.');
-    }
-}
-
+// ==================== INIȚIALIZARE EVENT LISTENERS ====================
+/**
+ * Atașează event listeners la butoane (la load sau când DOM-ul e ready)
+ * Flag _bound previne dublarea listener-urilor
+ */
 function initRecipeResultPage() {
     var saveBtn = document.getElementById('saveRecipeBtn');
-    if (saveBtn && !saveBtn._bound) { saveBtn.addEventListener('click', saveRecipe); saveBtn._bound = true; }
-
-    var shareBtn = document.getElementById('shareRecipeBtn');
-    if (shareBtn && !shareBtn._bound) { shareBtn.addEventListener('click', openShareModal); shareBtn._bound = true; }
-
-    document.querySelectorAll('.share-platform').forEach(function(btn){
-        if (!btn._bound) {
-            btn.addEventListener('click', function(){
-                var platform = this.getAttribute('data-platform');
-                shareOnSocial(platform);
-            });
-            btn._bound = true;
-        }
-    });
+    if (saveBtn && !saveBtn._bound) { 
+        saveBtn.addEventListener('click', saveRecipe); 
+        saveBtn._bound = true; 
+    }
 }
 
+// Rulează inițializarea când DOM-ul e gata
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initRecipeResultPage);
 } else {
     initRecipeResultPage();
 }
-
-

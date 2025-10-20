@@ -14,11 +14,12 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 load_dotenv()
 
+# Aplicație Flask pentru generarea și gestionarea rețetelor cu AI
 app = Flask(__name__)
-# Secret key din .env (NU folosi fallback static în producție)
+# Secret key din .env
 app.secret_key = os.getenv('SECRET_KEY') or os.getenv('FLASK_SECRET') or 'dev-secret-change-me'
 
-# Config cookie-uri sigure (poți seta SECURE_COOKIES=true în .env pentru producție/HTTPS)
+# Config cookie-uri sigure
 SECURE_COOKIES = (os.getenv('SECURE_COOKIES', 'false').lower() == 'true')
 app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
@@ -27,6 +28,7 @@ app.config.update(
 )
 
 # CSRF Protection
+# Activează protecția CSRF pentru formulare și endpoint-uri
 csrf = CSRFProtect(app)
 
 # Security headers (Talisman) + CSP minimă, compatibilă cu CDN-urile folosite
@@ -57,6 +59,7 @@ csp = {
 }
 
 # În dezvoltare nu forțăm HTTPS (poți seta force_https=True în producție)
+# Adaugă antete de securitate (CSP, X-Frame-Options, etc.) și controlează cookie-urile în funcție de mediu
 talisman = Talisman(
     app,
     content_security_policy=csp,
@@ -65,6 +68,7 @@ talisman = Talisman(
 )
 
 # Expune tokenul CSRF în cookie și în template pentru formulare
+# Middleware: atașează un cookie cu token CSRF pentru a putea fi folosit din JS (header X-CSRFToken)
 @app.after_request
 def set_csrf_cookie(response):
     try:
@@ -81,6 +85,7 @@ def set_csrf_cookie(response):
     return response
 
 @app.context_processor
+# Injectează tokenul CSRF în contextul Jinja pentru a-l include ușor în formulare
 def inject_csrf_token():
     try:
         return dict(csrf_token=generate_csrf())
@@ -99,11 +104,19 @@ logger = logging.getLogger(__name__)
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 
 # Configurare bază de date
+# Fișierul SQLite pentru persistența utilizatorilor și rețetelor
 DATABASE = 'recipes.db'
 
 
 def init_db():
-    """Inițializează baza de date cu tabelele necesare"""
+    """
+    Inițializează baza de date cu tabelele necesare.
+    
+    Creează tabelele (dacă nu există):
+    - recipes: stochează rețetele salvate
+    - users: utilizatori (email + hash parolă)
+    - usage_limits: contorizează generările pe zi pentru limitare
+    """
     conn = sqlite3.connect(DATABASE)
     cursor = conn.cursor()
 
@@ -143,6 +156,7 @@ def init_db():
 
 
 # Asigură existența tabelelor și sub Gunicorn/Render (la importul aplicației)
+# La import (inclusiv sub Gunicorn) ne asigurăm că tabelele necesare există
 try:
     init_db()
 except Exception:
@@ -150,7 +164,18 @@ except Exception:
 
 
 def get_gemini_response(ingredients_text):
-    """Generează rețeta folosind Google Gemini API (fără fallback)."""
+    """
+    Generează rețeta folosind Google Gemini API.
+    
+    Trimite un prompt structurat către Gemini pentru a obține JSON cu rețeta completă:
+    - titlu, porții, timpi de preparare și gătit
+    - ingrediente (cu cantități și unități)
+    - instrucțiuni detaliate (minim 10 pași, cu timp și temperatură)
+    - dificultate (1-5) și recomandare de vin
+    
+    Returns:
+        dict sau None: rețeta parsată, sau None la eroare
+    """
     if not GEMINI_API_KEY:
         return None
 
@@ -221,11 +246,13 @@ def get_gemini_response(ingredients_text):
         logger.exception("Gemini call error: %s", str(e))
         return None
 
-# [Removed] Orice fallback/hardcoding de rețete a fost eliminat – AI decide complet rețeta
-
-
 def _ingredients_to_strings(ingredients):
-    """Normalizează lista de ingrediente (din obiecte sau șiruri) în șiruri; nu inventează cantități."""
+    """
+    Normalizează lista de ingrediente (din obiecte sau șiruri) în șiruri; nu inventează cantități.
+    
+    Converteste ingredientele din format JSON (dict cu item, quantity, unit, notes)
+    în linii text formatate (ex: "• 200 g roșii (coapte)").
+    """
     normalized = []
     if isinstance(ingredients, list):
         for ing in ingredients:
@@ -252,12 +279,14 @@ def _ingredients_to_strings(ingredients):
     return normalized
 @app.before_request
 def load_current_user():
+    """Atașează utilizatorul autentificat (dacă există) în `g.user` pentru a fi accesibil în request și templates."""
     user_id = session.get('user_id')
     user_email = session.get('user_email')
     g.user = {'id': user_id, 'email': user_email} if user_id and user_email else None
 
 
 def login_required(view_func):
+    """Decorator simplu: redirecționează la login dacă nu există utilizator autentificat."""
     def _wrapped(*args, **kwargs):
         if not g.get('user'):
             flash('Trebuie să te autentifici pentru a accesa această acțiune.', 'error')
@@ -268,6 +297,7 @@ def login_required(view_func):
 
 
 def _get_today_count(user_id):
+    """Returnează numărul de generări făcute azi de utilizator (pentru limitare la 10/zi)."""
     conn = sqlite3.connect(DATABASE)
     cursor = conn.cursor()
     today = datetime.utcnow().date().isoformat()
@@ -278,6 +308,7 @@ def _get_today_count(user_id):
 
 
 def _inc_today_count(user_id):
+    """Incrementează contorul de generări pentru ziua curentă, pentru utilizatorul dat."""
     conn = sqlite3.connect(DATABASE)
     cursor = conn.cursor()
     today = datetime.utcnow().date().isoformat()
@@ -292,7 +323,15 @@ def _inc_today_count(user_id):
 
 
 def parse_recipe_response(response_text, original_ingredients):
-    """Parsează STRICT JSON-ul din răspunsul AI."""
+    """
+    Parsează STRICT JSON-ul din răspunsul AI.
+    
+    Extrage JSON din răspunsul Gemini (care poate conține markdown ```json```),
+    validează structura și formatează ingredientele/instrucțiunile pentru afișare.
+    
+    Returns:
+        dict sau None: rețeta structurată cu toate câmpurile, sau None la eroare de parsare
+    """
     try:
         json_text = response_text.strip()
         if json_text.startswith('```'):
@@ -374,6 +413,7 @@ def index():
     return render_template('index.html', remaining=remaining)
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+    """Autentifică utilizatorul pe baza email + parolă; setează sesiunea la succes."""
     if request.method == 'POST':
         email = (request.form.get('email') or '').strip().lower()
         password = request.form.get('password') or ''
@@ -398,6 +438,7 @@ def login():
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
+    """Creează un cont nou, stocând un hash sigur al parolei; autentifică imediat utilizatorul."""
     if request.method == 'POST':
         email = (request.form.get('email') or '').strip().lower()
         password = request.form.get('password') or ''
@@ -433,7 +474,13 @@ def logout():
 @app.route('/generate_recipe', methods=['POST'])
 @login_required
 def generate_recipe():
-    """Generează rețeta bazată pe ingrediente"""
+    """
+    Generează rețeta bazată pe ingrediente introduse de utilizator.
+    
+    - Verifică limita de 10 generări/zi per utilizator
+    - Apelează Gemini pentru generarea rețetei
+    - Incrementează contorul zilnic și afișează rezultatul
+    """
     ingredients = request.form.get('ingredients', '').strip()
 
     if not ingredients:
@@ -470,7 +517,11 @@ def generate_recipe():
 @app.route('/save_recipe', methods=['POST'])
 @login_required
 def save_recipe():
-    """Salvează rețeta în baza de date"""
+    """
+    Salvează rețeta în baza de date (apelat din JS cu fetch).
+    
+    Primește JSON cu datele rețetei și le stochează în tabelul `recipes`.
+    """
     try:
         data = request.get_json()
 
@@ -500,7 +551,11 @@ def save_recipe():
 @app.route('/gallery')
 @login_required
 def gallery():
-    """Afișează galeria de rețete salvate"""
+    """
+    Afișează galeria de rețete salvate.
+    
+    Listează toate rețetele din baza de date, cu preview de ingrediente și date de creare.
+    """
     conn = sqlite3.connect(DATABASE)
     cursor = conn.cursor()
 
@@ -528,7 +583,12 @@ def gallery():
 @app.route('/recipe/<int:recipe_id>')
 @login_required
 def view_recipe(recipe_id):
-    """Afișează o rețetă completă din galerie"""
+    """
+    Afișează o rețetă completă din galerie.
+    
+    Citește din baza de date toate detaliile rețetei (ingrediente, instrucțiuni, vin)
+    și le pasează către template pentru vizualizare cu funcții interactive (timer, mod gătit, etc.).
+    """
     conn = sqlite3.connect(DATABASE)
     cursor = conn.cursor()
 
@@ -556,7 +616,11 @@ def view_recipe(recipe_id):
 @app.route('/delete_recipe/<int:recipe_id>', methods=['POST'])
 @login_required
 def delete_recipe(recipe_id):
-    """Șterge o rețetă din galerie"""
+    """
+    Șterge o rețetă din galerie.
+    
+    Elimină rețeta din baza de date și redirecționează la galerie.
+    """
     conn = sqlite3.connect(DATABASE)
     cursor = conn.cursor()
 
@@ -569,10 +633,11 @@ def delete_recipe(recipe_id):
 
 
 if __name__ == '__main__':
-    # Inițializează baza de date
+    # Inițializează baza de date (în caz de rulare directă cu python app.py)
     init_db()
 
     # Rulează aplicația local în modul debug. Pe Render se folosește Gunicorn + PORT.
+    # Gunicorn va apela direct obiectul `app` fără să treacă prin acest if.
     port = int(os.getenv('PORT', '8001'))
     debug = os.getenv('FLASK_DEBUG', 'true').lower() == 'true'
     app.run(debug=debug, host='0.0.0.0', port=port)

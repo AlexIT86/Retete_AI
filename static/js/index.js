@@ -1,26 +1,22 @@
-// Funcție pentru auto-completarea ingredientelor
-function fillIngredients(ingredients) {
-    var textarea = document.getElementById('ingredients');
-    textarea.value = ingredients;
-    textarea.focus();
+/**
+ * index.js - Logică pentru pagina principală (formularul de generare rețete)
+ * 
+ * Funcționalități:
+ * - Validare în timp real a câmpului de ingrediente
+ * - Loading animation la submit
+ */
 
-    textarea.style.transform = 'scale(1.02)';
-    textarea.style.borderColor = 'var(--primary-color)';
 
-    setTimeout(function() {
-        textarea.style.transform = 'scale(1)';
-        textarea.style.borderColor = '';
-    }, 300);
-}
-
-// Loading animation pentru buton
+// ==================== LOADING ANIMATION ====================
+// Când se submit formularul, butonul devine disabled și arată loading spinner
 document.getElementById('ingredientsForm').addEventListener('submit', function() {
     var btn = document.getElementById('generateBtn');
     btn.innerHTML = '<span class="loading"></span> Generez rețeta...';
     btn.disabled = true;
 });
 
-// Validare ingrediente
+// ==================== VALIDARE INGREDIENTE ====================
+// Validare în timp real: butonul devine activ doar când există text în textarea
 document.getElementById('ingredients').addEventListener('input', function() {
     var value = this.value.trim();
     var btn = document.getElementById('generateBtn');
@@ -35,18 +31,5 @@ document.getElementById('ingredients').addEventListener('input', function() {
     }
 });
 
-// Efecte vizuale pentru carduri + click pentru umplere
-document.querySelectorAll('.ingredient-suggestion').forEach(function(card) {
-    card.addEventListener('mouseenter', function() {
-        this.style.backgroundColor = 'rgba(230, 126, 34, 0.05)';
-    });
-    card.addEventListener('mouseleave', function() {
-        this.style.backgroundColor = '';
-    });
-    card.addEventListener('click', function() {
-        var val = this.getAttribute('data-fill');
-        if (val) fillIngredients(val);
-    });
-});
 
 

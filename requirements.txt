@@ -1,6 +1,6 @@
-Flask==3.0.0
-requests==2.31.0
-python-dotenv==1.0.0
-Flask-WTF==1.2.1
-Flask-Talisman==1.1.0
-gunicorn==21.2.0
+Flask==3.0.0 # Framework web (rute, template-uri Jinja, sesiuni)
+requests==2.31.0 # Apeluri HTTP către API-ul Gemini
+python-dotenv==1.0.0 # Încarcă variabilele din .env (GEMINI_API_KEY, SECRET_KEY etc.)
+Flask-WTF==1.2.1 # Formulare + protecție CSRF
+Flask-Talisman==1.1.0 # Antete de securitate (CSP, HSTS opțional)
+gunicorn==21.2.0 # Server WSGI pentru producție (Render)
