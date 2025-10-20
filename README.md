@@ -155,8 +155,7 @@ Instalare și Rulare Locală
    ```
 
 ---
-
-## 🔒 Securitate
+Securitate
 
 - **CSRF Protection** - toate formularele și POST-urile sunt protejate cu token
 - **Password Hashing** - parolele nu se stochează plain-text (PBKDF2)
@@ -166,8 +165,7 @@ Instalare și Rulare Locală
 - **Input Validation** - validare server-side pentru toate intrările
 
 ---
-
-## 📊 Baza de Date (SQLite)
+Baza de Date (SQLite)
 
 ### Tabel `users`
 | Coloană        | Tip       | Descriere                          |
@@ -199,8 +197,7 @@ Instalare și Rulare Locală
 **Constrângere**: UNIQUE(user_id, day) - un singur rând per utilizator per zi
 
 ---
-
-## 🎨 Design și UX
+Design și UX
 
 - **Responsive** - funcționează perfect pe mobil, tabletă, desktop
 - **Animații subtile** - fade-in pentru carduri și secțiuni
@@ -213,9 +210,8 @@ Instalare și Rulare Locală
 
 ---
 
-## 📝 Funcționalități
-
-### ✅ Implementate
+Funcționalități
+Implementate
 - [x] Autentificare și înregistrare utilizatori
 - [x] Generare rețete cu Google Gemini AI
 - [x] Limită 10 generări/zi per utilizator
@@ -228,11 +224,3 @@ Instalare și Rulare Locală
 - [x] Deployment pe Render
 
 ---
-
-## 🐛 Debugging
-
-### Loguri
-Aplicația folosește modulul `logging` al Python. Configurează nivelul în `.env`:
-```env
-LOG_LEVEL=DEBUG  # sau INFO, WARNING, ERROR
-```
